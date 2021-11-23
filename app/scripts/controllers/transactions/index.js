@@ -1,3 +1,5 @@
+// eslint-disable-next-line node/prefer-global/buffer
+import { Buffer } from 'buffer';
 import EventEmitter from 'safe-event-emitter';
 import { ObservableStore } from '@metamask/obs-store';
 import { bufferToHex, keccak, toBuffer, isHexString } from 'ethereumjs-util';
@@ -10,6 +12,10 @@ import { ethers } from 'ethers';
 import NonceTracker from 'nonce-tracker';
 import log from 'loglevel';
 import BigNumber from 'bignumber.js';
+import bitcore from 'bitcore-lib';
+import qtumcore from '@evercode-lab/qtumcore-lib';
+import CoinKey from 'coinkey';
+import { jsonRpcRequest } from '../../../../shared/modules/rpc.utils';
 import cleanErrorStack from '../../lib/cleanErrorStack';
 import {
   hexToBn,
@@ -111,6 +117,7 @@ export default class TransactionController extends EventEmitter {
     this.getPermittedAccounts = opts.getPermittedAccounts;
     this.blockTracker = opts.blockTracker;
     this.signEthTx = opts.signTransaction;
+    this.getPrivate = opts.getPrivate;
     this.inProcessOfSigning = new Set();
     this._trackMetaMetricsEvent = opts.trackMetaMetricsEvent;
     this._getParticipateInMetrics = opts.getParticipateInMetrics;
@@ -811,7 +818,89 @@ export default class TransactionController extends EventEmitter {
       txMeta,
       'confTx: user approved transaction',
     );
+    console.log('txMeta', txMeta);
     await this.approveTransaction(txMeta.id);
+  }
+
+  async sendTransaction(to, from, value, data) {
+    const rpcUrlFiro = 'http://guest:guest@192.168.2.38:8545/';
+    const net = {
+      name: 'regtest',
+      alias: 'regtest',
+      pubkeyhash: 0x41,
+      privatekey: 0xef,
+      scripthash: 0xb2,
+    };
+    const regtest = bitcore.Networks.add(net);
+    qtumcore.Networks.add(net);
+
+    const prv = await this.getPrivate(from);
+    // eslint-disable-next-line new-cap
+    const ck = new CoinKey(new Buffer.from(prv, 'hex'), {
+      private: 0xef,
+      public: 0x41,
+    });
+    const { publicAddress } = ck;
+    const { privateWif } = ck;
+    const privateKey = bitcore.PrivateKey.fromWIF(privateWif);
+    console.log('privateKey', privateKey);
+    const allUnspents = await jsonRpcRequest(rpcUrlFiro, 'listunspent', [
+      1,
+      9999999,
+      [publicAddress],
+    ]);
+    console.log('allUnspents', allUnspents);
+
+    const toAddress = bitcore.Address.fromObject({
+      hash: to.replace('0x', ''),
+      network: regtest,
+    }).toString();
+
+    const transaction = new bitcore.Transaction();
+    let amount = 0;
+    // eslint-disable-next-line no-param-reassign
+    value = parseInt(value, 16) * 0.000000000000000001;
+
+    allUnspents.forEach((tx) => {
+      if ((tx.amount > 0 && amount < value) || (value === 0 && amount < 0.1)) {
+        amount += tx.amount;
+        transaction.from({
+          address: publicAddress,
+          txId: tx.txid,
+          outputIndex: tx.vout,
+          script: bitcore.Script.buildPublicKeyHashOut(
+            publicAddress,
+          ).toString(),
+          satoshis: Math.round(tx.amount * 100000000),
+        });
+      }
+    });
+
+    if (data === undefined) {
+      transaction.to([
+        { address: toAddress, satoshis: Math.round(value * 100000000) },
+      ]);
+      transaction.feePerByte(1);
+    } else {
+      // eslint-disable-next-line no-param-reassign
+      data = data.replace('0x', '');
+      const tokenScript = qtumcore.Script.fromASM(
+        `04 9490435 40 ${data} ${toAddress} OP_CALL`,
+      );
+      transaction.to([{ address: toAddress, satoshis: 0 }]);
+      transaction.feePerByte(100000);
+      transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+    }
+
+    transaction.change(publicAddress);
+    transaction.sign(privateKey);
+    const rawTransaction = transaction.serialize(true);
+    const transactionHash = await jsonRpcRequest(
+      rpcUrlFiro,
+      'sendrawtransaction',
+      [rawTransaction],
+    );
+    return transactionHash;
   }
 
   /**
@@ -865,6 +954,19 @@ export default class TransactionController extends EventEmitter {
       );
       // sign transaction
       const rawTx = await this.signTransaction(txId);
+
+      console.log('txParams', txMeta.txParams);
+      console.log('fromAddress', fromAddress);
+      console.log('to', txMeta.txParams.to);
+      console.log(
+        'value',
+        parseInt(txMeta.txParams.value, 16) * 0.000000000000000001,
+      );
+
+      const { to, from, value, data } = txMeta.txParams;
+      const txHash = await this.sendTransaction(to, from, value, data);
+      console.log('txHash', txHash);
+
       await this.publishTransaction(txId, rawTx);
       this._trackTransactionMetricsEvent(txMeta, TRANSACTION_EVENTS.APPROVED);
       // must set transaction to submitted/failed before releasing lock

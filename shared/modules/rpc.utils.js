@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 import { SECOND } from '../constants/time';
 import getFetchWithTimeout from './fetch-with-timeout';
 
@@ -16,6 +17,7 @@ export async function jsonRpcRequest(rpcUrl, rpcMethod, rpcParams = []) {
   let fetchUrl = rpcUrl;
   const headers = {
     'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': 'http://192.168.2.38:8545/',
   };
   // Convert basic auth URL component to Authorization header
   const { origin, pathname, username, password, search } = new URL(rpcUrl);
@@ -27,7 +29,11 @@ export async function jsonRpcRequest(rpcUrl, rpcMethod, rpcParams = []) {
     headers.Authorization = `Basic ${encodedAuth}`;
     fetchUrl = `${origin}${pathname}${search}`;
   }
-  const jsonRpcResponse = await fetchWithTimeout(fetchUrl, {
+  console.log('fetchUrl', fetchUrl);
+  console.log('headers', headers);
+  console.log('rpcParams', rpcParams);
+
+  const jsonRpcResponse = await fetch(fetchUrl, {
     method: 'POST',
     body: JSON.stringify({
       id: Date.now().toString(),
@@ -35,10 +41,15 @@ export async function jsonRpcRequest(rpcUrl, rpcMethod, rpcParams = []) {
       method: rpcMethod,
       params: rpcParams,
     }),
+    // mode: 'cors',
     headers,
     cache: 'default',
-  }).then((httpResponse) => httpResponse.json());
+  });
+  console.log('jsonRpcResponse', jsonRpcResponse);
 
+  const jsonRpcResponseJson = await jsonRpcResponse.json();
+
+  console.log('jsonRpcResponseJson', jsonRpcResponseJson);
   if (
     !jsonRpcResponse ||
     Array.isArray(jsonRpcResponse) ||

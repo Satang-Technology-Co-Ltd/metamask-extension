@@ -85,3 +85,50 @@ Whenever you change dependencies (adding, removing, or updating, either in `pack
 - [How to generate a visualization of this repository's development](./development/gource-viz.sh)
 
 [1]: http://www.nomnoml.com/#view/%5B%3Cactor%3Euser%5D%0A%0A%5Bmetamask-ui%7C%0A%20%20%20%5Btools%7C%0A%20%20%20%20%20react%0A%20%20%20%20%20redux%0A%20%20%20%20%20thunk%0A%20%20%20%20%20ethUtils%0A%20%20%20%20%20jazzicon%0A%20%20%20%5D%0A%20%20%20%5Bcomponents%7C%0A%20%20%20%20%20app%0A%20%20%20%20%20account-detail%0A%20%20%20%20%20accounts%0A%20%20%20%20%20locked-screen%0A%20%20%20%20%20restore-vault%0A%20%20%20%20%20identicon%0A%20%20%20%20%20config%0A%20%20%20%20%20info%0A%20%20%20%5D%0A%20%20%20%5Breducers%7C%0A%20%20%20%20%20app%0A%20%20%20%20%20metamask%0A%20%20%20%20%20identities%0A%20%20%20%5D%0A%20%20%20%5Bactions%7C%0A%20%20%20%20%20%5BbackgroundConnection%5D%0A%20%20%20%5D%0A%20%20%20%5Bcomponents%5D%3A-%3E%5Bactions%5D%0A%20%20%20%5Bactions%5D%3A-%3E%5Breducers%5D%0A%20%20%20%5Breducers%5D%3A-%3E%5Bcomponents%5D%0A%5D%0A%0A%5Bweb%20dapp%7C%0A%20%20%5Bui%20code%5D%0A%20%20%5Bweb3%5D%0A%20%20%5Bmetamask-inpage%5D%0A%20%20%0A%20%20%5B%3Cactor%3Eui%20developer%5D%0A%20%20%5Bui%20developer%5D-%3E%5Bui%20code%5D%0A%20%20%5Bui%20code%5D%3C-%3E%5Bweb3%5D%0A%20%20%5Bweb3%5D%3C-%3E%5Bmetamask-inpage%5D%0A%5D%0A%0A%5Bmetamask-background%7C%0A%20%20%5Bprovider-engine%5D%0A%20%20%5Bhooked%20wallet%20subprovider%5D%0A%20%20%5Bid%20store%5D%0A%20%20%0A%20%20%5Bprovider-engine%5D%3C-%3E%5Bhooked%20wallet%20subprovider%5D%0A%20%20%5Bhooked%20wallet%20subprovider%5D%3C-%3E%5Bid%20store%5D%0A%20%20%5Bconfig%20manager%7C%0A%20%20%20%20%5Brpc%20configuration%5D%0A%20%20%20%20%5Bencrypted%20keys%5D%0A%20%20%20%20%5Bwallet%20nicknames%5D%0A%20%20%5D%0A%20%20%0A%20%20%5Bprovider-engine%5D%3C-%5Bconfig%20manager%5D%0A%20%20%5Bid%20store%5D%3C-%3E%5Bconfig%20manager%5D%0A%5D%0A%0A%5Buser%5D%3C-%3E%5Bmetamask-ui%5D%0A%0A%5Buser%5D%3C%3A--%3A%3E%5Bweb%20dapp%5D%0A%0A%5Bmetamask-contentscript%7C%0A%20%20%5Bplugin%20restart%20detector%5D%0A%20%20%5Brpc%20passthrough%5D%0A%5D%0A%0A%5Brpc%20%7C%0A%20%20%5Bethereum%20blockchain%20%7C%0A%20%20%20%20%5Bcontracts%5D%0A%20%20%20%20%5Baccounts%5D%0A%20%20%5D%0A%5D%0A%0A%5Bweb%20dapp%5D%3C%3A--%3A%3E%5Bmetamask-contentscript%5D%0A%5Bmetamask-contentscript%5D%3C-%3E%5Bmetamask-background%5D%0A%5Bmetamask-background%5D%3C-%3E%5Bmetamask-ui%5D%0A%5Bmetamask-background%5D%3C-%3E%5Brpc%5D%0A
+
+### Wallet of FVM
+
+`node_modules/eth-hd-keyring/node_modules/ethereumjs-wallet/dist/index.js`
+
+```js
+    /**
+     * Returns the wallet's address.
+     */
+    # TODO Modify func getAddress for convert address
+    Wallet.prototype.getAddress = function () {
+        var CoinKey = require('coinkey');
+        var ck = new CoinKey(new Buffer.from(this.getPrivateKeyString().replace('0x', ''), 'hex'), {private: 0xEF, public: 0x41});
+        return ck.pubKeyHash;
+    };
+```
+
+### KeyringController
+
+`node_modules/eth-keyring-controller/index.js`
+
+```js
+    /**
+   * Sign Ethereum Transaction
+   *
+   * Signs an Ethereum transaction object.
+   *
+   * @param {Object} ethTx - The transaction to sign.
+   * @param {string} _fromAddress - The transaction 'from' address.
+   * @param {Object} opts - Signing options.
+   * @returns {Promise<Object>} The signed transactio object.
+   */
+  signTransaction (ethTx, _fromAddress, opts = {}) {
+    const fromAddress = normalizeAddress(_fromAddress)
+    return this.getKeyringForAccount(fromAddress)
+      .then((keyring) => {
+        return keyring.signTransaction(fromAddress, ethTx, opts)
+      })
+  }
+  getPrivate (_fromAddress, opts = {}) {
+    const fromAddress = normalizeAddress(_fromAddress)
+    return this.getKeyringForAccount(fromAddress)
+      .then((keyring) => {
+        return keyring.getPrivateKeyFor(fromAddress, opts).toString('hex')
+      })
+  }
+```
