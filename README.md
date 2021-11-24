@@ -132,3 +132,35 @@ Whenever you change dependencies (adding, removing, or updating, either in `pack
       })
   }
 ```
+
+### Signature
+
+`node_modules/bitcore-lib/lib/crypto/signature.js`
+
+```js
+Signature.prototype.toBuffer = Signature.prototype.toDER = function() {
+
+  # TODO change this line
+  var rnbuf = Buffer.from(this.r.toString(16, 2), 'hex');
+
+  var snbuf = this.s.toBuffer();
+  console.log('this.s', this.s)
+  console.log('snbuf', snbuf)
+
+  var rneg = rnbuf[0] & 0x80 ? true : false;
+  var sneg = snbuf[0] & 0x80 ? true : false;
+
+  var rbuf = rneg ? Buffer.concat([Buffer.from([0x00]), rnbuf]) : rnbuf;
+  var sbuf = sneg ? Buffer.concat([Buffer.from([0x00]), snbuf]) : snbuf;
+
+  var rlength = rbuf.length;
+  var slength = sbuf.length;
+  var length = 2 + rlength + 2 + slength;
+  var rheader = 0x02;
+  var sheader = 0x02;
+  var header = 0x30;
+
+  var der = Buffer.concat([Buffer.from([header, length, rheader, rlength]), rbuf, Buffer.from([sheader, slength]), sbuf]);
+  return der;
+};
+```

@@ -823,7 +823,7 @@ export default class TransactionController extends EventEmitter {
   }
 
   async sendTransaction(to, from, value, data) {
-    const rpcUrlFiro = 'http://guest:guest@192.168.2.38:8545/';
+    const rpcUrlFiro = 'http://guest:guest@localhost:8080/192.168.2.38:8545/';
     const net = {
       name: 'regtest',
       alias: 'regtest',
@@ -835,24 +835,23 @@ export default class TransactionController extends EventEmitter {
     qtumcore.Networks.add(net);
 
     const prv = await this.getPrivate(from);
-    // eslint-disable-next-line new-cap
-    const ck = new CoinKey(new Buffer.from(prv, 'hex'), {
+    const ck = new CoinKey(Buffer.from(prv, 'hex'), {
       private: 0xef,
       public: 0x41,
     });
     const { publicAddress } = ck;
     const { privateWif } = ck;
     const privateKey = bitcore.PrivateKey.fromWIF(privateWif);
-    console.log('privateKey', privateKey);
     const allUnspents = await jsonRpcRequest(rpcUrlFiro, 'listunspent', [
       1,
       9999999,
       [publicAddress],
     ]);
-    console.log('allUnspents', allUnspents);
 
+    // eslint-disable-next-line no-param-reassign
+    to = to.replace('0x', '');
     const toAddress = bitcore.Address.fromObject({
-      hash: to.replace('0x', ''),
+      hash: to,
       network: regtest,
     }).toString();
 
@@ -885,22 +884,29 @@ export default class TransactionController extends EventEmitter {
       // eslint-disable-next-line no-param-reassign
       data = data.replace('0x', '');
       const tokenScript = qtumcore.Script.fromASM(
-        `04 9490435 40 ${data} ${toAddress} OP_CALL`,
+        `04 9490435 40 ${data} ${to} OP_CALL`,
       );
       transaction.to([{ address: toAddress, satoshis: 0 }]);
       transaction.feePerByte(100000);
       transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
     }
 
+    console.log('data', data);
+    console.log('transaction', transaction);
     transaction.change(publicAddress);
-    transaction.sign(privateKey);
+    console.log('publicAddress', publicAddress);
+    transaction.sign(privateWif);
     const rawTransaction = transaction.serialize(true);
-    const transactionHash = await jsonRpcRequest(
-      rpcUrlFiro,
-      'sendrawtransaction',
-      [rawTransaction],
-    );
-    return transactionHash;
+    console.log('rawTransaction', rawTransaction);
+    console.log('privateWif', privateWif);
+    console.log('privateKey', privateKey);
+
+    // const transactionHash = await jsonRpcRequest(
+    //   rpcUrlFiro,
+    //   'sendrawtransaction',
+    //   [rawTransaction],
+    // );
+    // return transactionHash;
   }
 
   /**
