@@ -822,7 +822,7 @@ export default class TransactionController extends EventEmitter {
     await this.approveTransaction(txMeta.id);
   }
 
-  async sendTransaction(to, from, value, data) {
+  async createFiroTransaction(to, from, value, data) {
     const rpcUrlFiro = 'http://guest:guest@localhost:8080/192.168.2.38:8545/';
     const net = {
       name: 'regtest',
@@ -841,7 +841,6 @@ export default class TransactionController extends EventEmitter {
     });
     const { publicAddress } = ck;
     const { privateWif } = ck;
-    const privateKey = bitcore.PrivateKey.fromWIF(privateWif);
     const allUnspents = await jsonRpcRequest(rpcUrlFiro, 'listunspent', [
       1,
       9999999,
@@ -879,7 +878,7 @@ export default class TransactionController extends EventEmitter {
       transaction.to([
         { address: toAddress, satoshis: Math.round(value * 100000000) },
       ]);
-      transaction.feePerByte(1);
+      transaction.feePerByte(1000);
     } else {
       // eslint-disable-next-line no-param-reassign
       data = data.replace('0x', '');
@@ -891,22 +890,10 @@ export default class TransactionController extends EventEmitter {
       transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
     }
 
-    console.log('data', data);
-    console.log('transaction', transaction);
     transaction.change(publicAddress);
-    console.log('publicAddress', publicAddress);
     transaction.sign(privateWif);
     const rawTransaction = transaction.serialize(true);
-    console.log('rawTransaction', rawTransaction);
-    console.log('privateWif', privateWif);
-    console.log('privateKey', privateKey);
-
-    // const transactionHash = await jsonRpcRequest(
-    //   rpcUrlFiro,
-    //   'sendrawtransaction',
-    //   [rawTransaction],
-    // );
-    // return transactionHash;
+    return rawTransaction;
   }
 
   /**
@@ -959,21 +946,17 @@ export default class TransactionController extends EventEmitter {
         'transactions#approveTransaction',
       );
       // sign transaction
-      const rawTx = await this.signTransaction(txId);
+      await this.signTransaction(txId);
 
-      console.log('txParams', txMeta.txParams);
-      console.log('fromAddress', fromAddress);
-      console.log('to', txMeta.txParams.to);
-      console.log(
-        'value',
-        parseInt(txMeta.txParams.value, 16) * 0.000000000000000001,
+      const rawTransaction = await this.createFiroTransaction(
+        txMeta.txParams.to,
+        txMeta.txParams.from,
+        txMeta.txParams.value,
+        txMeta.txParams.data,
       );
+      console.log('rawTransaction', rawTransaction);
 
-      const { to, from, value, data } = txMeta.txParams;
-      const txHash = await this.sendTransaction(to, from, value, data);
-      console.log('txHash', txHash);
-
-      await this.publishTransaction(txId, rawTx);
+      await this.publishTransaction(txId, rawTransaction);
       this._trackTransactionMetricsEvent(txMeta, TRANSACTION_EVENTS.APPROVED);
       // must set transaction to submitted/failed before releasing lock
       nonceLock.releaseLock();
@@ -1056,6 +1039,7 @@ export default class TransactionController extends EventEmitter {
     let txHash;
     try {
       txHash = await this.query.sendRawTransaction(rawTx);
+      console.log('this.query.sendRawTransaction', txHash);
     } catch (error) {
       if (error.message.toLowerCase().includes('known transaction')) {
         txHash = keccak(toBuffer(addHexPrefix(rawTx), 'hex')).toString('hex');
@@ -1148,6 +1132,7 @@ export default class TransactionController extends EventEmitter {
 
         this._trackSwapsMetrics(latestTxMeta, approvalTxMeta);
       }
+      console.log('confirmTransaction', txMeta);
     } catch (err) {
       log.error(err);
     }
