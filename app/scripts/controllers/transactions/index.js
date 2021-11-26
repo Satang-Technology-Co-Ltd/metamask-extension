@@ -823,7 +823,7 @@ export default class TransactionController extends EventEmitter {
   }
 
   async createFiroTransaction(to, from, value, data) {
-    const rpcUrlFiro = 'http://guest:guest@localhost:8080/192.168.2.38:8545/';
+    const { rpcUrl } = this.getProviderConfig();
     const net = {
       name: 'regtest',
       alias: 'regtest',
@@ -841,11 +841,11 @@ export default class TransactionController extends EventEmitter {
     });
     const { publicAddress } = ck;
     const { privateWif } = ck;
-    const allUnspents = await jsonRpcRequest(rpcUrlFiro, 'listunspent', [
-      1,
-      9999999,
-      [publicAddress],
-    ]);
+    const allUnspents = await jsonRpcRequest(rpcUrl, 'listUnspent', {
+      minconf: 1,
+      maxconf: 99999999,
+      addresses: [publicAddress],
+    });
 
     // eslint-disable-next-line no-param-reassign
     to = to.replace('0x', '');
