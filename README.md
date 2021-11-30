@@ -163,6 +163,84 @@ Signature.prototype.toBuffer = Signature.prototype.toDER = function() {
 };
 ```
 
+### QtumCore
+
+`node_modules/@evercode-lab/qtumcore-lib/lib/script/script.js`
+
+```js
+Script.fromASM = function(str) {
+  var script = new Script();
+  script.chunks = [];
+  var tokens = str.split(' ');
+  var i = 0;
+  if ((tokens[tokens.length - 1]) === "OP_CALL" && tokens.length === 6) {
+    ...
+  } else if ((tokens[tokens.length - 1]) === "OP_CREATE") {
+    var one = new Buffer.from(tokens[0].toString(16), 'hex');
+    script.chunks.push({
+        buf: one,
+        len: one.length,
+        opcodenum: one.length
+    });
+    var sender = new Buffer.from(tokens[1].toString(16), 'hex');
+    script.chunks.push({
+        buf: sender,
+        len: sender.length,
+        opcodenum: sender.length
+    });
+    var scriptSig = new Buffer.from(tokens[2].toString(16), 'hex');
+    script.chunks.push({
+        buf: scriptSig,
+        len: scriptSig.length,
+        opcodenum: 76
+    });
+    script.chunks.push({
+      opcodenum: Opcode.OP_SENDER
+    });
+    var version = new Buffer.from(tokens[4].toString(16), 'hex');
+    script.chunks.push({
+        buf: version,
+        len: version.length,
+        opcodenum: version.length
+    });
+    var maxGas = new Buffer.from((+tokens[5]).toString(16), 'hex');
+    script.chunks.push({
+        buf: maxGas,
+        len: maxGas.length,
+        opcodenum: maxGas.length
+    });
+    var gasPrice = new Buffer.from((+tokens[6]).toString(16), 'hex');
+    script.chunks.push({
+        buf: gasPrice,
+        len: gasPrice.length,
+        opcodenum: gasPrice.length
+    });
+    var data = new Buffer.from((tokens[7]).toString(16), 'hex');
+    script.chunks.push({
+        buf: data,
+        len: data.length,
+        opcodenum: 77
+    });
+    script.chunks.push({
+        opcodenum: Opcode.OP_CREATE
+    });
+  } else {
+      ...
+  }
+  return script;
+};
+```
+
+`node_modules/@evercode-lab/qtumcore-lib/lib/opcode.js`
+
+```js
+    // template matching params
+    OP_CREATE: 193,
+    OP_CALL: 194,
+    OP_SPEND: 195,
+    OP_SENDER: 196,
+```
+
 ### Use proxy for test
 
 `proxy.js`
