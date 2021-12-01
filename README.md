@@ -218,6 +218,23 @@ Script.fromASM = function(str) {
 };
 ```
 
+### Lavamoat
+
+`development/build/scripts.js`
+
+```js
+          case 'background': {
+            renderHtmlFile({
+              htmlName: 'background',
+              groupSet,
+              commonSet,
+              browserPlatforms,
+              useLavamoat: false, // Set To false
+            });
+            break;
+          }
+```
+
 ### Use proxy for test
 
 `proxy.js`
