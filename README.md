@@ -198,7 +198,7 @@ Script.fromASM = function(str) {
     script.chunks.push({
         buf: contractByteCode,
         len: contractByteCode.length,
-        opcodenum: 77
+        opcodenum: Opcode.OP_PUSHDATA2
     });
     script.chunks.push({
         opcodenum: Opcode.OP_CREATE
