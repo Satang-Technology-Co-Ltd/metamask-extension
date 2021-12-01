@@ -886,25 +886,19 @@ export default class TransactionController extends EventEmitter {
       // eslint-disable-next-line no-param-reassign
       data = data.replace('0x', '');
       transaction.to([{ address: toAddress, satoshis: 0 }]);
-      transaction.feePerByte(1000000);
-    }
+      transaction.feePerByte(100000);
 
-    if (to) {
-      const tokenScript = qtumcore.Script.fromASM(
-        `04 9490435 40 ${data} ${to} OP_CALL`,
-      );
-      transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
-    } else {
-      const privateKey = bitcore.PrivateKey(privateWif);
-      const { signature } = transaction.getSignatures(privateKey)[0];
-      const scriptSig = bitcore.Script.buildPublicKeyHashIn(
-        privateKey.publicKey,
-        signature,
-      );
-      const tokenScript = qtumcore.Script.fromASM(
-        `01 ${sender} ${scriptSig.toHex()} OP_SENDER 04 2576980249 40 ${data} OP_CREATE`,
-      );
-      transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+      if (to) {
+        const tokenScript = qtumcore.Script.fromASM(
+          `04 9490435 40 ${data} ${to} OP_CALL`,
+        );
+        transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+      } else {
+        const tokenScript = qtumcore.Script.fromASM(
+          `04 9490435 40 ${data} OP_CREATE`,
+        );
+        transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+      }
     }
 
     transaction.change(publicAddress);
