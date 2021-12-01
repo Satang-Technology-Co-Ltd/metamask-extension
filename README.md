@@ -163,6 +163,53 @@ Signature.prototype.toBuffer = Signature.prototype.toDER = function() {
 };
 ```
 
+### QtumCore
+
+`node_modules/@evercode-lab/qtumcore-lib/lib/script/script.js`
+
+```js
+Script.fromASM = function(str) {
+  var script = new Script();
+  script.chunks = [];
+  var tokens = str.split(' ');
+  var i = 0;
+  if ((tokens[tokens.length - 1]) === "OP_CALL" && tokens.length === 6) {
+    ...
+  } else if ((tokens[tokens.length - 1]) === "OP_CREATE") {
+    var version = new Buffer.from(tokens[0].toString(16), 'hex');
+    script.chunks.push({
+        buf: version,
+        len: version.length,
+        opcodenum: version.length
+    });
+    var maxGas = new Buffer.from((+tokens[1]).toString(16), 'hex');
+    script.chunks.push({
+        buf: maxGas,
+        len: maxGas.length,
+        opcodenum: maxGas.length
+    });
+    var gasPrice = new Buffer.from((+tokens[2]).toString(16), 'hex');
+    script.chunks.push({
+        buf: gasPrice,
+        len: gasPrice.length,
+        opcodenum: gasPrice.length
+    });
+    var contractByteCode = new Buffer.from(tokens[3], 'hex');
+    script.chunks.push({
+        buf: contractByteCode,
+        len: contractByteCode.length,
+        opcodenum: Opcode.OP_PUSHDATA2
+    });
+    script.chunks.push({
+        opcodenum: Opcode.OP_CREATE
+    });
+  } else {
+      ...
+  }
+  return script;
+};
+```
+
 ### Use proxy for test
 
 `proxy.js`

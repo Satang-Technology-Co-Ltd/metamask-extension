@@ -847,10 +847,13 @@ export default class TransactionController extends EventEmitter {
       addresses: [publicAddress],
     });
 
-    // eslint-disable-next-line no-param-reassign
-    to = to.replace('0x', '');
+    if (to !== undefined) {
+      // eslint-disable-next-line no-param-reassign
+      to = to.replace('0x', '');
+    }
+    const sender = from.replace('0x', '');
     const toAddress = bitcore.Address.fromObject({
-      hash: to,
+      hash: to || sender,
       network: regtest,
     }).toString();
 
@@ -882,12 +885,20 @@ export default class TransactionController extends EventEmitter {
     } else {
       // eslint-disable-next-line no-param-reassign
       data = data.replace('0x', '');
-      const tokenScript = qtumcore.Script.fromASM(
-        `04 9490435 40 ${data} ${to} OP_CALL`,
-      );
       transaction.to([{ address: toAddress, satoshis: 0 }]);
       transaction.feePerByte(100000);
-      transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+
+      if (to) {
+        const tokenScript = qtumcore.Script.fromASM(
+          `04 9490435 40 ${data} ${to} OP_CALL`,
+        );
+        transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+      } else {
+        const tokenScript = qtumcore.Script.fromASM(
+          `04 9490435 40 ${data} OP_CREATE`,
+        );
+        transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+      }
     }
 
     transaction.change(publicAddress);
