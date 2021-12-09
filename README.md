@@ -99,6 +99,7 @@ Whenever you change dependencies (adding, removing, or updating, either in `pack
 ### Wallet of FVM
 
 `node_modules/eth-hd-keyring/node_modules/ethereumjs-wallet/dist/index.js`
+`node_modules/eth-simple-keyring/node_modules/ethereumjs-wallet/dist/index.js`
 
 ```js
     /**
