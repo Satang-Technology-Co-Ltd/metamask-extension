@@ -879,7 +879,7 @@ export default class TransactionController extends EventEmitter {
       // eslint-disable-next-line no-param-reassign
       data = data.replace('0x', '');
       transaction.to([{ address: toAddress, satoshis: 0 }]);
-      transaction.feePerByte(100000);
+      transaction.feePerByte(704180);
 
       if (to) {
         const tokenScript = qtumcore.Script.fromASM(
