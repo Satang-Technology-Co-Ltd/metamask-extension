@@ -842,11 +842,12 @@ export default class TransactionController extends EventEmitter {
     });
     const { publicAddress } = ck;
     const { privateWif } = ck;
-    const allUnspents = await jsonRpcRequest(rpcUrl, 'listUnspent', {
-      minconf: 1,
-      maxconf: 99999999,
-      addresses: [publicAddress],
-    });
+    // eslint-disable-next-line no-param-reassign
+    value = parseInt(value, 16) * 0.000000000000000001;
+    const allUnspents = await jsonRpcRequest(rpcUrl, 'qtum_getUTXOs', [
+      from,
+      value || 1,
+    ]);
 
     if (to !== undefined) {
       // eslint-disable-next-line no-param-reassign
@@ -859,23 +860,14 @@ export default class TransactionController extends EventEmitter {
     }).toString();
 
     const transaction = new bitcore.Transaction();
-    let amount = 0;
-    // eslint-disable-next-line no-param-reassign
-    value = parseInt(value, 16) * 0.000000000000000001;
-
     allUnspents.forEach((tx) => {
-      if ((tx.amount > 0 && amount < value) || (value === 0 && amount < 0.1)) {
-        amount += tx.amount;
-        transaction.from({
-          address: publicAddress,
-          txId: tx.txid,
-          outputIndex: tx.vout,
-          script: bitcore.Script.buildPublicKeyHashOut(
-            publicAddress,
-          ).toString(),
-          satoshis: Math.round(tx.amount * 100000000),
-        });
-      }
+      transaction.from({
+        address: publicAddress,
+        txId: tx.txid,
+        outputIndex: tx.vout,
+        script: bitcore.Script.buildPublicKeyHashOut(publicAddress).toString(),
+        satoshis: Math.round(tx.amount * 100000000),
+      });
     });
 
     if (data === undefined) {
