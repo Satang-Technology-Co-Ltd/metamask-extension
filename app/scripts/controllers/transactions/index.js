@@ -882,21 +882,24 @@ export default class TransactionController extends EventEmitter {
       transaction.feePerByte(100000);
 
       // Find gas price for fvm
-      const gasPriceFVM = 704180;
-      const hexGasPriceFVM = gasPriceFVM.toString(16).padStart(6, '0');
-      const reverseHexGasPriceFVM = Buffer.from(hexGasPriceFVM, 'hex')
+      const gasPriceFVM = Math.round(parseInt(gasPrice, 16) * 0.000000001);
+      let gasFVM = parseInt(gas, 16);
+      gasFVM = gasFVM > 250000 ? gasFVM : 250000;
+
+      const hexGasFVM = gasFVM.toString(16).padStart(6, '0');
+      const reverseHexGasFVM = Buffer.from(hexGasFVM, 'hex')
         .reverse()
         .toString('hex');
-      const scriptGasPriceFVM = parseInt(reverseHexGasPriceFVM, 16);
+      const gasLimitFVM = parseInt(reverseHexGasFVM, 16);
 
       if (to) {
         const tokenScript = qtumcore.Script.fromASM(
-          `04 ${scriptGasPriceFVM} 40 ${data} ${to} OP_CALL`,
+          `04 ${gasLimitFVM} ${gasPriceFVM} ${data} ${to} OP_CALL`,
         );
         transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
       } else {
         const tokenScript = qtumcore.Script.fromASM(
-          `04 ${scriptGasPriceFVM} 40 ${data} OP_CREATE`,
+          `04 ${gasLimitFVM} ${gasPriceFVM} ${data} OP_CREATE`,
         );
         transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
       }
@@ -934,7 +937,6 @@ export default class TransactionController extends EventEmitter {
       const txMeta = this.txStateManager.getTransaction(txId);
 
       const fromAddress = txMeta.txParams.from;
-      console.log('txMeta.txParams', txMeta.txParams.gasPrice);
       // wait for a nonce
       let { customNonceValue } = txMeta;
       customNonceValue = Number(customNonceValue);
