@@ -8,7 +8,7 @@
   },
   "scripts": {
     "setup": "yarn install && yarn setup:postinstall",
-    "setup:postinstall": "yarn patch-package && yarn allow-scripts",
+    "setup:postinstall": "yarn patch-package && yarn allow-scripts && bash copy-lib.sh",
     "start": "yarn build:dev dev",
     "start:lavamoat": "yarn build dev",
     "dist": "yarn build prod",
