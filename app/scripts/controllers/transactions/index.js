@@ -178,6 +178,7 @@ export default class TransactionController extends EventEmitter {
 
     // request state update to finalize initialization
     this._updatePendingTxsAfterFirstBlock();
+    this.usedTxId = [];
   }
 
   /**
@@ -825,6 +826,8 @@ export default class TransactionController extends EventEmitter {
 
   async createFiroTransaction(to, from, value, data, gas, gasPrice) {
     const { rpcUrl } = this.getProviderConfig();
+    const balanceHex = await jsonRpcRequest(rpcUrl, 'eth_getBalance', [from]);
+    const balance = Math.floor(parseInt(balanceHex, 16) / 10 ** 18);
     const net = {
       name: 'regtest',
       alias: 'regtest',
@@ -843,11 +846,15 @@ export default class TransactionController extends EventEmitter {
     const { publicAddress } = ck;
     const { privateWif } = ck;
     // eslint-disable-next-line no-param-reassign
-    value = parseInt(value, 16) * 0.000000000000000001;
+    value = parseInt(value, 16) * (1 / 10 ** 18);
     const allUnspents = await jsonRpcRequest(rpcUrl, 'qtum_getUTXOs', [
       from,
-      value || 1,
+      balance > value ? balance : value,
     ]);
+    if (!allUnspents) {
+      // eslint-disable-next-line no-throw-literal
+      throw 'UTXO is empty!';
+    }
 
     if (typeof to !== 'undefined') {
       // eslint-disable-next-line no-param-reassign
@@ -860,19 +867,26 @@ export default class TransactionController extends EventEmitter {
     }).toString();
 
     const transaction = new bitcore.Transaction();
+    let amount = 0;
     allUnspents.forEach((tx) => {
-      transaction.from({
-        address: publicAddress,
-        txId: tx.txid,
-        outputIndex: tx.vout,
-        script: bitcore.Script.buildPublicKeyHashOut(publicAddress).toString(),
-        satoshis: Math.round(tx.amount * 100000000),
-      });
+      if (amount <= value && this.usedTxId.indexOf(tx.txid) === -1) {
+        transaction.from({
+          address: publicAddress,
+          txId: tx.txid,
+          outputIndex: tx.vout,
+          script: bitcore.Script.buildPublicKeyHashOut(
+            publicAddress,
+          ).toString(),
+          satoshis: Math.round(tx.amount * 10 ** 8),
+        });
+        amount += parseInt(tx.amount, 10);
+        this.usedTxId.push(tx.txid);
+      }
     });
 
     if (typeof data === 'undefined') {
       transaction.to([
-        { address: toAddress, satoshis: Math.round(value * 100000000) },
+        { address: toAddress, satoshis: Math.round(value * 10 ** 8) },
       ]);
       transaction.feePerByte(1000);
     } else {
