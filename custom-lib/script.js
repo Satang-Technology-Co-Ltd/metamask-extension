@@ -136,31 +136,31 @@ Script.fromASM = function(str) {
   var tokens = str.split(' ');
   var i = 0;
   if ((tokens[tokens.length - 1]) === "OP_CALL" && tokens.length === 6) {
-      var version = new Buffer(tokens[0].toString(16), 'hex');
+      var version = new Buffer.from(tokens[0].toString(16), 'hex');
       script.chunks.push({
           buf: version,
           len: version.length,
           opcodenum: version.length
       });
-      var maxGas = new Buffer((+tokens[1]).toString(16), 'hex');
+      var maxGas = new Buffer.from((+tokens[1]).toString(16), 'hex');
       script.chunks.push({
           buf: maxGas,
           len: maxGas.length,
           opcodenum: maxGas.length
       });
-      var gasPrice = new Buffer((+tokens[2]).toString(16), 'hex');
+      var gasPrice = new Buffer.from((+tokens[2]).toString(16), 'hex');
       script.chunks.push({
           buf: gasPrice,
           len: gasPrice.length,
           opcodenum: gasPrice.length
       });
-      var contractHash = new Buffer(tokens[3], 'hex');
+      var contractHash = new Buffer.from(tokens[3], 'hex');
       script.chunks.push({
           buf: contractHash,
           len: contractHash.length,
-          opcodenum: contractHash.length
+          opcodenum: Opcode.OP_PUSHDATA2
       });
-      var contractAddress = new Buffer(tokens[4], 'hex');
+      var contractAddress = new Buffer.from(tokens[4], 'hex');
       script.chunks.push({
           buf: contractAddress,
           len: contractAddress.length,

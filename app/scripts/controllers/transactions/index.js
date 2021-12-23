@@ -827,7 +827,7 @@ export default class TransactionController extends EventEmitter {
   async createFiroTransaction(to, from, value, data, gas, gasPrice) {
     const { rpcUrl } = this.getProviderConfig();
     const balanceHex = await jsonRpcRequest(rpcUrl, 'eth_getBalance', [from]);
-    const balance = Math.floor(parseInt(balanceHex, 16) / 10 ** 18);
+    const balance = Math.floor(parseInt(balanceHex, 16) / 1e18);
     const net = {
       name: 'regtest',
       alias: 'regtest',
@@ -846,7 +846,7 @@ export default class TransactionController extends EventEmitter {
     const { publicAddress } = ck;
     const { privateWif } = ck;
     // eslint-disable-next-line no-param-reassign
-    value = parseInt(value, 16) * (1 / 10 ** 18);
+    value = parseInt(value, 16) * (1 / 1e18);
     const allUnspents = await jsonRpcRequest(rpcUrl, 'qtum_getUTXOs', [
       from,
       balance > value ? balance : value,
@@ -877,7 +877,7 @@ export default class TransactionController extends EventEmitter {
           script: bitcore.Script.buildPublicKeyHashOut(
             publicAddress,
           ).toString(),
-          satoshis: Math.round(tx.amount * 10 ** 8),
+          satoshis: Math.round(tx.amount * 1e8),
         });
         amount += parseInt(tx.amount, 10);
         this.usedTxId.push(tx.txid);
@@ -886,7 +886,7 @@ export default class TransactionController extends EventEmitter {
 
     if (typeof data === 'undefined') {
       transaction.to([
-        { address: toAddress, satoshis: Math.round(value * 10 ** 8) },
+        { address: toAddress, satoshis: Math.round(value * 1e8) },
       ]);
       transaction.feePerByte(1000);
     } else {
@@ -900,7 +900,7 @@ export default class TransactionController extends EventEmitter {
       let gasFVM = parseInt(gas, 16);
       gasFVM = gasFVM > 250000 ? gasFVM : 250000;
 
-      const hexGasFVM = gasFVM.toString(16).padStart(6, '0');
+      const hexGasFVM = gasFVM.toString(16).padStart(8, '0');
       const reverseHexGasFVM = Buffer.from(hexGasFVM, 'hex')
         .reverse()
         .toString('hex');
