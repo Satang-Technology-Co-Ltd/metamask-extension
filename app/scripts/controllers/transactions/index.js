@@ -866,10 +866,17 @@ export default class TransactionController extends EventEmitter {
       network: regtest,
     }).toString();
 
+    const gasPriceFVM = Math.ceil(parseInt(gasPrice, 16) / 1e9);
+    let gasFVM = parseInt(gas, 16);
+    const maxGasPrice = Math.ceil((gasPriceFVM * gasFVM) / 1e9);
+
     const transaction = new bitcore.Transaction();
     let amount = 0;
     allUnspents.forEach((tx) => {
-      if (amount <= value && this.usedTxId.indexOf(tx.txid) === -1) {
+      if (
+        amount <= value + maxGasPrice &&
+        this.usedTxId.indexOf(tx.txid) === -1
+      ) {
         transaction.from({
           address: publicAddress,
           txId: tx.txid,
@@ -896,11 +903,17 @@ export default class TransactionController extends EventEmitter {
       transaction.feePerByte(100000);
 
       // Find gas price for fvm
-      const gasPriceFVM = Math.round(parseInt(gasPrice, 16) * (1 / 1e9));
-      let gasFVM = parseInt(gas, 16);
       gasFVM = gasFVM > 250000 ? gasFVM : 250000;
+      const gasFVMHex = gasFVM.toString(16);
+      let hexGasFVM;
+      if (gasFVMHex.length === 7) {
+        hexGasFVM = gasFVMHex.padStart(8, '0');
+      } else if (gasFVMHex.length === 8) {
+        hexGasFVM = gasFVMHex.padStart(10, '0');
+      } else {
+        hexGasFVM = gasFVMHex.padStart(6, '0');
+      }
 
-      const hexGasFVM = gasFVM.toString(16).padStart(8, '0');
       const reverseHexGasFVM = Buffer.from(hexGasFVM, 'hex')
         .reverse()
         .toString('hex');
