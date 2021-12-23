@@ -896,7 +896,7 @@ export default class TransactionController extends EventEmitter {
       transaction.feePerByte(100000);
 
       // Find gas price for fvm
-      const gasPriceFVM = Math.round(parseInt(gasPrice, 16) * 0.000000001);
+      const gasPriceFVM = Math.round(parseInt(gasPrice, 16) * (1 / 1e9));
       let gasFVM = parseInt(gas, 16);
       gasFVM = gasFVM > 250000 ? gasFVM : 250000;
 
