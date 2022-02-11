@@ -12,9 +12,8 @@ import { ethers } from 'ethers';
 import NonceTracker from 'nonce-tracker';
 import log from 'loglevel';
 import BigNumber from 'bignumber.js';
-import bitcore from 'bitcore-lib';
-import qtumcore from '@evercode-lab/qtumcore-lib';
 import CoinKey from 'coinkey';
+import * as fvmcore from 'fvmcore-lib';
 import { jsonRpcRequest } from '../../../../shared/modules/rpc.utils';
 import cleanErrorStack from '../../lib/cleanErrorStack';
 import {
@@ -828,23 +827,12 @@ export default class TransactionController extends EventEmitter {
     const { rpcUrl } = this.getProviderConfig();
     const balanceHex = await jsonRpcRequest(rpcUrl, 'eth_getBalance', [from]);
     const balance = Math.floor(parseInt(balanceHex, 16) / 1e18);
-    const net = {
-      name: 'regtest',
-      alias: 'regtest',
-      pubkeyhash: 0x41,
-      privatekey: 0xef,
-      scripthash: 0xb2,
-    };
-    const regtest = bitcore.Networks.add(net);
-    qtumcore.Networks.add(net);
-
     const prv = await this.getPrivate(from);
     const ck = new CoinKey(Buffer.from(prv, 'hex'), {
       private: 0xef,
       public: 0x41,
     });
-    const { publicAddress } = ck;
-    const { privateWif } = ck;
+    const { publicAddress, privateWif } = ck;
     // eslint-disable-next-line no-param-reassign
     value = parseInt(value, 16) * (1 / 1e18);
     const allUnspents = await jsonRpcRequest(rpcUrl, 'qtum_getUTXOs', [
@@ -861,16 +849,16 @@ export default class TransactionController extends EventEmitter {
       to = to.replace('0x', '');
     }
     const sender = from.replace('0x', '');
-    const toAddress = bitcore.Address.fromObject({
+    const toAddress = fvmcore.Address.fromObject({
       hash: to || sender,
-      network: regtest,
     }).toString();
 
     const gasPriceFVM = Math.ceil(parseInt(gasPrice, 16) / 1e9);
     let gasFVM = parseInt(gas, 16);
+    gasFVM = gasFVM > 250000 ? gasFVM : 250000;
     const maxGasPrice = Math.ceil((gasPriceFVM * gasFVM) / 1e9);
 
-    const transaction = new bitcore.Transaction();
+    const transaction = new fvmcore.Transaction();
     let amount = 0;
     allUnspents.forEach((tx) => {
       if (
@@ -881,7 +869,7 @@ export default class TransactionController extends EventEmitter {
           address: publicAddress,
           txId: tx.txid,
           outputIndex: tx.vout,
-          script: bitcore.Script.buildPublicKeyHashOut(
+          script: fvmcore.Script.buildPublicKeyHashOut(
             publicAddress,
           ).toString(),
           satoshis: Math.round(tx.amount * 1e8),
@@ -895,40 +883,31 @@ export default class TransactionController extends EventEmitter {
       transaction.to([
         { address: toAddress, satoshis: Math.round(value * 1e8) },
       ]);
-      transaction.feePerByte(1000);
+      transaction.feePerByte(1);
     } else {
       // eslint-disable-next-line no-param-reassign
       data = data.replace('0x', '');
       transaction.to([{ address: toAddress, satoshis: 0 }]);
-      transaction.feePerByte(100000);
+      transaction.feePerByte(100);
 
-      // Find gas price for fvm
-      gasFVM = gasFVM > 250000 ? gasFVM : 250000;
-      const gasFVMHex = gasFVM.toString(16);
-      let hexGasFVM;
-      if (gasFVMHex.length === 7) {
-        hexGasFVM = gasFVMHex.padStart(8, '0');
-      } else if (gasFVMHex.length === 8) {
-        hexGasFVM = gasFVMHex.padStart(10, '0');
-      } else {
-        hexGasFVM = gasFVMHex.padStart(6, '0');
-      }
-
-      const reverseHexGasFVM = Buffer.from(hexGasFVM, 'hex')
-        .reverse()
-        .toString('hex');
-      const gasLimitFVM = parseInt(reverseHexGasFVM, 16);
-
+      const script = new fvmcore.Script();
       if (to) {
-        const tokenScript = qtumcore.Script.fromASM(
-          `04 ${gasLimitFVM} ${gasPriceFVM} ${data} ${to} OP_CALL`,
-        );
-        transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+        script
+          .add(Buffer.from('04', 'hex'))
+          .add(fvmcore.crypto.BN.fromNumber(gasFVM).toScriptNumBuffer())
+          .add(fvmcore.crypto.BN.fromNumber(gasPriceFVM).toScriptNumBuffer())
+          .add(Buffer.from(data, 'hex'))
+          .add(Buffer.from(to, 'hex'))
+          .add('OP_CALL');
+        transaction.outputs[0].setScript(fvmcore.Script(script.toHex()));
       } else {
-        const tokenScript = qtumcore.Script.fromASM(
-          `04 ${gasLimitFVM} ${gasPriceFVM} ${data} OP_CREATE`,
-        );
-        transaction.outputs[0].setScript(bitcore.Script(tokenScript.toHex()));
+        script
+          .add(Buffer.from('04', 'hex'))
+          .add(fvmcore.crypto.BN.fromNumber(gasFVM).toScriptNumBuffer())
+          .add(fvmcore.crypto.BN.fromNumber(gasPriceFVM).toScriptNumBuffer())
+          .add(Buffer.from(data, 'hex'))
+          .add('OP_CREATE');
+        transaction.outputs[0].setScript(fvmcore.Script(script.toHex()));
       }
     }
 

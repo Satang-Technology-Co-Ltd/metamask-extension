@@ -8,8 +8,5 @@ cp custom-lib/eth-simple-keyring.js node_modules/eth-simple-keyring/node_modules
 echo "copy node_modules/eth-keyring-controller/index.js:366"
 cp custom-lib/eth-keyring-controller.js node_modules/eth-keyring-controller/index.js
 
-echo "copy node_modules/bitcore-lib/lib/crypto/signature.js:168"
-cp custom-lib/signature.js node_modules/bitcore-lib/lib/crypto/signature.js
-
-echo "copy node_modules/@evercode-lab/qtumcore-lib/lib/script/script.js:133"
-cp custom-lib/script.js node_modules/@evercode-lab/qtumcore-lib/lib/script/script.js
+echo "copy node_modules/fvmcore-lib/lib/crypto/signature.js:168"
+cp custom-lib/signature.js node_modules/fvmcore-lib/lib/crypto/signature.js
