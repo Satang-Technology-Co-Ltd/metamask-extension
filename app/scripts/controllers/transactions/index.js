@@ -854,8 +854,7 @@ export default class TransactionController extends EventEmitter {
     }).toString();
 
     const gasPriceFVM = Math.ceil(parseInt(gasPrice, 16) / 1e9);
-    let gasFVM = parseInt(gas, 16);
-    gasFVM = gasFVM > 250000 ? gasFVM : 250000;
+    const gasFVM = parseInt(gas, 16);
     const maxGasPrice = Math.ceil((gasPriceFVM * gasFVM) / 1e9);
 
     const transaction = new fvmcore.Transaction();
