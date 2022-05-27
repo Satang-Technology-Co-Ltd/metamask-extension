@@ -251,10 +251,4 @@ describe('useTransactionDisplayData', () => {
       });
     });
   });
-  it('should return an appropriate object', () => {
-    const { result } = renderHookWithRouter(() =>
-      useTransactionDisplayData(transactions[0]),
-    );
-    expect(result.current).toStrictEqual(expectedResults[0]);
-  });
 });
