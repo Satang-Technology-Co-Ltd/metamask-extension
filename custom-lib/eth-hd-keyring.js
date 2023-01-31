@@ -400,7 +400,7 @@ var Wallet = /** @class */ (function () {
      */
     Wallet.prototype.getAddress = function () {
         var CoinKey = require('coinkey');
-        var ck = new CoinKey(new Buffer.from(this.getPrivateKeyString().replace('0x', ''), 'hex'), {private: 0xEF, public: 0x41});
+        var ck = new CoinKey(new Buffer.from(this.getPrivateKeyString().replace('0x', ''), 'hex'), {private: 0xB9, public: 0x41});
         return ck.pubKeyHash;
     };
     /**
