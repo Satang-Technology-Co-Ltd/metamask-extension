@@ -482,7 +482,7 @@ function createFactoredBuild({
               groupSet,
               commonSet,
               browserPlatforms,
-              useLavamoat: true,
+              useLavamoat: false,
             });
             break;
           }

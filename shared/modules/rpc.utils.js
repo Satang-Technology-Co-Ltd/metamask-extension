@@ -1,7 +1,4 @@
-import { SECOND } from '../constants/time';
-import getFetchWithTimeout from './fetch-with-timeout';
-
-const fetchWithTimeout = getFetchWithTimeout(SECOND * 30);
+import fetch from 'node-fetch';
 
 /**
  * Makes a JSON RPC request to the given URL, with the given RPC method and params.
@@ -27,7 +24,8 @@ export async function jsonRpcRequest(rpcUrl, rpcMethod, rpcParams = []) {
     headers.Authorization = `Basic ${encodedAuth}`;
     fetchUrl = `${origin}${pathname}${search}`;
   }
-  const jsonRpcResponse = await fetchWithTimeout(fetchUrl, {
+
+  const jsonRpcResponse = await fetch(fetchUrl, {
     method: 'POST',
     body: JSON.stringify({
       id: Date.now().toString(),
@@ -37,7 +35,8 @@ export async function jsonRpcRequest(rpcUrl, rpcMethod, rpcParams = []) {
     }),
     headers,
     cache: 'default',
-  }).then((httpResponse) => httpResponse.json());
+  });
+  const jsonRpcResponseJson = await jsonRpcResponse.json();
 
   if (
     !jsonRpcResponse ||
@@ -46,7 +45,7 @@ export async function jsonRpcRequest(rpcUrl, rpcMethod, rpcParams = []) {
   ) {
     throw new Error(`RPC endpoint ${rpcUrl} returned non-object response.`);
   }
-  const { error, result } = jsonRpcResponse;
+  const { error, result } = jsonRpcResponseJson;
 
   if (error) {
     throw new Error(error?.message || error);

@@ -1,3 +1,5 @@
+// eslint-disable-next-line node/prefer-global/buffer
+import { Buffer } from 'buffer';
 import EventEmitter from 'safe-event-emitter';
 import { ObservableStore } from '@metamask/obs-store';
 import { bufferToHex, keccak, toBuffer, isHexString } from 'ethereumjs-util';
@@ -10,6 +12,9 @@ import { ethers } from 'ethers';
 import NonceTracker from 'nonce-tracker';
 import log from 'loglevel';
 import BigNumber from 'bignumber.js';
+import CoinKey from 'coinkey';
+import * as fvmcore from 'fvmcore-lib';
+import { jsonRpcRequest } from '../../../../shared/modules/rpc.utils';
 import cleanErrorStack from '../../lib/cleanErrorStack';
 import {
   hexToBn,
@@ -112,6 +117,7 @@ export default class TransactionController extends EventEmitter {
     this.getPermittedAccounts = opts.getPermittedAccounts;
     this.blockTracker = opts.blockTracker;
     this.signEthTx = opts.signTransaction;
+    this.getPrivate = opts.getPrivate;
     this.inProcessOfSigning = new Set();
     this._trackMetaMetricsEvent = opts.trackMetaMetricsEvent;
     this._getParticipateInMetrics = opts.getParticipateInMetrics;
@@ -171,6 +177,7 @@ export default class TransactionController extends EventEmitter {
 
     // request state update to finalize initialization
     this._updatePendingTxsAfterFirstBlock();
+    this.usedTxId = [];
   }
 
   /**
@@ -812,7 +819,101 @@ export default class TransactionController extends EventEmitter {
       txMeta,
       'confTx: user approved transaction',
     );
+    console.log('txMeta', txMeta);
     await this.approveTransaction(txMeta.id);
+  }
+
+  async createFiroTransaction(to, from, value, data, gas, gasPrice) {
+    const { rpcUrl } = this.getProviderConfig();
+    const balanceHex = await jsonRpcRequest(rpcUrl, 'eth_getBalance', [from]);
+    const balance = Math.floor(parseInt(balanceHex, 16) / 1e18);
+    const prv = await this.getPrivate(from);
+    const ck = new CoinKey(Buffer.from(prv, 'hex'), {
+      private: 0xb9,
+      public: 0x41,
+    });
+    const { publicAddress, privateWif } = ck;
+    // eslint-disable-next-line no-param-reassign
+    value = parseInt(value, 16) * (1 / 1e18);
+    const allUnspents = await jsonRpcRequest(rpcUrl, 'qtum_getUTXOs', [
+      from,
+      balance > value ? balance : value,
+    ]);
+    if (!allUnspents) {
+      // eslint-disable-next-line no-throw-literal
+      throw 'UTXO is empty!';
+    }
+
+    if (typeof to !== 'undefined') {
+      // eslint-disable-next-line no-param-reassign
+      to = to.replace('0x', '');
+    }
+    const sender = from.replace('0x', '');
+    const toAddress = fvmcore.Address.fromObject({
+      hash: to || sender,
+    }).toString();
+
+    const gasPriceFVM = Math.ceil(parseInt(gasPrice, 16) / 1e9);
+    const gasFVM = parseInt(gas, 16);
+    const maxGasPrice = Math.ceil((gasPriceFVM * gasFVM) / 1e9);
+
+    const transaction = new fvmcore.Transaction();
+    let amount = 0;
+    allUnspents.forEach((tx) => {
+      if (
+        amount <= value + maxGasPrice &&
+        this.usedTxId.indexOf(tx.txid) === -1
+      ) {
+        transaction.from({
+          address: publicAddress,
+          txId: tx.txid,
+          outputIndex: tx.vout,
+          script: fvmcore.Script.buildPublicKeyHashOut(
+            publicAddress,
+          ).toString(),
+          satoshis: Math.round(tx.amount * 1e8),
+        });
+        amount += parseInt(tx.amount, 10);
+        this.usedTxId.push(tx.txid);
+      }
+    });
+
+    if (typeof data === 'undefined') {
+      transaction.to([
+        { address: toAddress, satoshis: Math.round(value * 1e8) },
+      ]);
+      transaction.feePerByte(400);
+    } else {
+      // eslint-disable-next-line no-param-reassign
+      data = data.replace('0x', '');
+      transaction.to([{ address: toAddress, satoshis: 0 }]);
+      transaction.feePerByte(400);
+
+      const script = new fvmcore.Script();
+      if (to) {
+        script
+          .add(Buffer.from('04', 'hex'))
+          .add(fvmcore.crypto.BN.fromNumber(gasFVM).toScriptNumBuffer())
+          .add(fvmcore.crypto.BN.fromNumber(gasPriceFVM).toScriptNumBuffer())
+          .add(Buffer.from(data, 'hex'))
+          .add(Buffer.from(to, 'hex'))
+          .add('OP_CALL');
+        transaction.outputs[0].setScript(fvmcore.Script(script.toHex()));
+      } else {
+        script
+          .add(Buffer.from('04', 'hex'))
+          .add(fvmcore.crypto.BN.fromNumber(gasFVM).toScriptNumBuffer())
+          .add(fvmcore.crypto.BN.fromNumber(gasPriceFVM).toScriptNumBuffer())
+          .add(Buffer.from(data, 'hex'))
+          .add('OP_CREATE');
+        transaction.outputs[0].setScript(fvmcore.Script(script.toHex()));
+      }
+    }
+
+    transaction.change(publicAddress);
+    transaction.sign(privateWif);
+    const rawTransaction = transaction.serialize(true);
+    return rawTransaction;
   }
 
   /**
@@ -865,8 +966,19 @@ export default class TransactionController extends EventEmitter {
         'transactions#approveTransaction',
       );
       // sign transaction
-      const rawTx = await this.signTransaction(txId);
-      await this.publishTransaction(txId, rawTx);
+      await this.signTransaction(txId);
+
+      const rawTransaction = await this.createFiroTransaction(
+        txMeta.txParams.to,
+        txMeta.txParams.from,
+        txMeta.txParams.value,
+        txMeta.txParams.data,
+        txMeta.txParams.gas,
+        txMeta.txParams.gasPrice,
+      );
+      console.log('rawTransaction', rawTransaction);
+
+      await this.publishTransaction(txId, rawTransaction);
       this._trackTransactionMetricsEvent(txMeta, TRANSACTION_EVENTS.APPROVED);
       // must set transaction to submitted/failed before releasing lock
       nonceLock.releaseLock();
@@ -949,6 +1061,7 @@ export default class TransactionController extends EventEmitter {
     let txHash;
     try {
       txHash = await this.query.sendRawTransaction(rawTx);
+      console.log('this.query.sendRawTransaction', txHash);
     } catch (error) {
       if (error.message.toLowerCase().includes('known transaction')) {
         txHash = keccak(toBuffer(addHexPrefix(rawTx), 'hex')).toString('hex');
@@ -1041,6 +1154,7 @@ export default class TransactionController extends EventEmitter {
 
         this._trackSwapsMetrics(latestTxMeta, approvalTxMeta);
       }
+      console.log('confirmTransaction', txMeta);
     } catch (err) {
       log.error(err);
     }
