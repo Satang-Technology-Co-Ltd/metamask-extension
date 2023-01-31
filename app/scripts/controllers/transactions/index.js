@@ -829,7 +829,7 @@ export default class TransactionController extends EventEmitter {
     const balance = Math.floor(parseInt(balanceHex, 16) / 1e18);
     const prv = await this.getPrivate(from);
     const ck = new CoinKey(Buffer.from(prv, 'hex'), {
-      private: 0xef,
+      private: 0xb9,
       public: 0x41,
     });
     const { publicAddress, privateWif } = ck;
@@ -882,12 +882,12 @@ export default class TransactionController extends EventEmitter {
       transaction.to([
         { address: toAddress, satoshis: Math.round(value * 1e8) },
       ]);
-      transaction.feePerByte(1);
+      transaction.feePerByte(400);
     } else {
       // eslint-disable-next-line no-param-reassign
       data = data.replace('0x', '');
       transaction.to([{ address: toAddress, satoshis: 0 }]);
-      transaction.feePerByte(100);
+      transaction.feePerByte(400);
 
       const script = new fvmcore.Script();
       if (to) {

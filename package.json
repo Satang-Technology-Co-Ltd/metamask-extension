@@ -160,7 +160,6 @@
     "extensionizer": "^1.0.1",
     "fast-json-patch": "^2.2.1",
     "fast-safe-stringify": "^2.0.7",
-    "firovm-sdk": "^0.0.12-alpha",
     "fuse.js": "^3.2.0",
     "fvmcore-lib": "https://gitpkg.now.sh/Satang-Technology-Co-Ltd/bitcore/packages/bitcore-lib-fvm?d02e926a229ca8e38d24c90ebe87a4dec81cb249",
     "globalthis": "^1.0.1",
